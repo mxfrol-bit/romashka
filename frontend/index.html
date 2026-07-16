@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USA Number Farm • HTML</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; }
+        .result-table { font-size: 0.875rem; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+    <div class="max-w-7xl mx-auto p-6">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-x-3">
+                <i class="fa-solid fa-globe text-3xl text-emerald-500"></i>
+                <div>
+                    <h1 class="text-3xl font-semibold tracking-tight">USA Number Farm</h1>
+                    <p class="text-zinc-500 text-sm">HTML Interface • История номеров</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="text-emerald-400 text-sm font-medium">v2.0</div>
+                <div class="text-zinc-500 text-xs">HTML + FastAPI</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Panel: Upload & Settings -->
+            <div class="lg:col-span-5 bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                <h2 class="font-semibold text-lg mb-4 flex items-center gap-x-2">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>1. Загрузи номера</span>
+                </h2>
+                
+                <div class="border-2 border-dashed border-zinc-700 rounded-xl p-8 text-center mb-6 hover:border-zinc-600 transition-colors">
+                    <input type="file" id="fileInput" accept=".txt,.csv" class="hidden">
+                    <button onclick="document.getElementById('fileInput').click()" 
+                            class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium flex items-center gap-x-2 mx-auto">
+                        <i class="fa-solid fa-file-upload"></i>
+                        <span>Выбрать файл (TXT / CSV)</span>
+                    </button>
+                    <p class="text-zinc-500 text-xs mt-3">По одному номеру на строку</p>
+                </div>
+
+                <div id="fileInfo" class="hidden mb-4 text-sm bg-zinc-800 px-3 py-2 rounded-lg">
+                    <span id="fileName" class="font-medium"></span>
+                    <span id="fileCount" class="text-emerald-400 ml-2"></span>
+                </div>
+
+                <!-- Checkers -->
+                <h2 class="font-semibold text-lg mb-3 mt-6">2. Выбери чекеры (история номера)</h2>
+                <div class="space-y-2 text-sm" id="checkersList">
+                    <!-- JS заполнит -->
+                </div>
+
+                <div class="mt-6">
+                    <label class="flex items-center gap-x-2 text-sm cursor-pointer">
+                        <input type="checkbox" id="doBuy" class="accent-emerald-600">
+                        <span>Сразу купить одобренные номера</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Right Panel: Actions -->
+            <div class="lg:col-span-7 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col">
+                <h2 class="font-semibold text-lg mb-4">3. Запуск</h2>
+                
+                <button onclick="runPipeline()"
+                        class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-all rounded-2xl font-semibold text-lg flex items-center justify-center gap-x-3 shadow-lg shadow-emerald-950">
+                    <i class="fa-solid fa-play mr-1"></i>
+                    <span>ЗАПУСТИТЬ ПРОВЕРКУ ИСТОРИИ</span>
+                </button>
+
+                <div id="status" class="mt-4 text-sm hidden"></div>
+
+                <!-- Results -->
+                <div id="resultsSection" class="mt-auto pt-6 hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold">Результаты</h3>
+                        <button onclick="downloadCSV()" 
+                                class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg flex items-center gap-x-1.5">
+                            <i class="fa-solid fa-download text-xs"></i>
+                            <span>Скачать CSV</span>
+                        </button>
+                    </div>
+                    <div class="overflow-auto max-h-[420px] border border-zinc-800 rounded-xl">
+                        <table class="w-full text-sm result-table" id="resultsTable">
+                            <!-- JS заполнит таблицу -->
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let phones = [];
+        let resultsData = [];
+
+        // Загрузка файла
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const content = ev.target.result;
+                phones = content.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                
+                document.getElementById('fileInfo').classList.remove('hidden');
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileCount').textContent = `(${phones.length} номеров)`;
+            };
+            reader.readAsText(file);
+        });
+
+        // Загрузка списка чекеров
+        async function loadCheckers() {
+            const container = document.getElementById('checkersList');
+            container.innerHTML = '';
+
+            // Статичные топ-5 (можно потом сделать динамическим через API)
+            const checkers = [
+                {id: "truepeople", name: "TruePeople", desc: "История владельцев"},
+                {id: "beenverified", name: "BeenVerified", desc: "Предыдущие ФИО и адреса"},
+                {id: "truthfinder", name: "TruthFinder", desc: "Глубокая история номера"},
+                {id: "instant_checkmate", name: "Instant Checkmate", desc: "История + данные"},
+                {id: "intelius", name: "Intelius", desc: "Владельцы номера"}
+            ];
+
+            checkers.forEach(ch => {
+                const div = document.createElement('div');
+                div.className = `flex items-center justify-between px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl`;
+                div.innerHTML = `
+                    <div class="flex items-center gap-x-3">
+                        <input type="checkbox" id="${ch.id}" checked class="accent-emerald-600 w-4 h-4">
+                        <div>
+                            <div class="font-medium">${ch.name}</div>
+                            <div class="text-[10px] text-zinc-500">${ch.desc}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Запуск пайплайна
+        async function runPipeline() {
+            if (phones.length === 0) {
+                alert("Сначала загрузи файл с номерами");
+                return;
+            }
+
+            const status = document.getElementById('status');
+            status.classList.remove('hidden');
+            status.innerHTML = `<span class="text-amber-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Выполняем проверку истории...</span>`;
+
+            // Собираем выбранные чекеры
+            const selectedCheckers = [];
+            document.querySelectorAll('#checkersList input[type="checkbox"]').forEach(cb => {
+                if (cb.checked) selectedCheckers.push(cb.id);
+            });
+
+            if (selectedCheckers.length === 0) {
+                alert("Выбери хотя бы один чекер");
+                return;
+            }
+
+            const doBuy = document.getElementById('doBuy').checked;
+
+            try {
+                // Здесь должен быть реальный вызов к твоему бэкенду
+                // Пока имитируем результат
+                await new Promise(r => setTimeout(r, 1800));
+
+                // Моковые результаты (потом заменишь на реальный fetch)
+                resultsData = phones.slice(0, 12).map((phone, i) => ({
+                    phone: phone,
+                    has_data: i % 3 !== 0,
+                    first_name: i % 3 !== 0 ? "John" : null,
+                    last_name: i % 3 !== 0 ? "Smith" : null,
+                    previous_address: i % 3 !== 0 ? "123 Main St, CA" : null,
+                    source: selectedCheckers[0]
+                }));
+
+                renderResults(resultsData);
+                status.innerHTML = `<span class="text-emerald-400"><i class="fa-solid fa-check mr-2"></i>Готово! Найдено ${resultsData.filter(r => r.has_data).length} номеров с историей.</span>`;
+
+            } catch (err) {
+                status.innerHTML = `<span class="text-red-400">Ошибка: ${err.message}</span>`;
+            }
+        }
+
+        function renderResults(data) {
+            const section = document.getElementById('resultsSection');
+            const table = document.getElementById('resultsTable');
+            section.classList.remove('hidden');
+            table.innerHTML = '';
+
+            // Header
+            const header = document.createElement('tr');
+            header.className = 'bg-zinc-950 text-zinc-400 text-xs';
+            header.innerHTML = `
+                <th class="px-4 py-2 text-left">Номер</th>
+                <th class="px-4 py-2 text-left">Есть данные</th>
+                <th class="px-4 py-2 text-left">ФИО</th>
+                <th class="px-4 py-2 text-left">Предыдущий адрес</th>
+                <th class="px-4 py-2 text-left">Источник</th>
+            `;
+            table.appendChild(header);
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-t border-zinc-800 hover:bg-zinc-950';
+                tr.innerHTML = `
+                    <td class="px-4 py-2 font-mono text-xs">${row.phone}</td>
+                    <td class="px-4 py-2">
+                        ${row.has_data 
+                            ? '<span class="px-2 py-0.5 text-[10px] bg-emerald-950 text-emerald-400 rounded">Есть</span>' 
+                            : '<span class="px-2 py-0.5 text-[10px] bg-zinc-800 text-zinc-500 rounded">Нет</span>'}
+                    </td>
+                    <td class="px-4 py-2">${row.first_name ? row.first_name + ' ' + row.last_name : '-'}</td>
+                    <td class="px-4 py-2 text-xs text-zinc-400">${row.previous_address || '-'}</td>
+                    <td class="px-4 py-2 text-xs">${row.source}</td>
+                `;
+                table.appendChild(tr);
+            });
+        }
+
+        function downloadCSV() {
+            if (!resultsData.length) return;
+            
+            const headers = Object.keys(resultsData[0]);
+            const csv = [
+                headers.join(','),
+                ...resultsData.map(row => headers.map(h => `"${row[h] || ''}"`).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'history_results.csv';
+            a.click();
+        }
+
+        // Инициализация
+        window.onload = function() {
+            loadCheckers();
+        }
+    </script>
+</body>
+</html>
