@@ -11,8 +11,14 @@ PhysicalDeviceProvider — работа с реальными телефонам
 
 from typing import List, Dict, Any
 import subprocess
-import uiautomator2 as u2
 from .base import BaseDeviceProvider
+
+# uiautomator2 импортируется только когда реально нужен (ленивый импорт)
+# Чтобы не падал проект, если библиотека не установлена
+try:
+    import uiautomator2 as u2
+except ImportError:
+    u2 = None
 
 
 class PhysicalDeviceProvider(BaseDeviceProvider):
