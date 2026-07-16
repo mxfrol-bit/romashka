@@ -1,3 +1,13 @@
+"""
+КРУТОЙ ВЕБ-ИНТЕРФЕЙС ДЛЯ USA NUMBER FARM
+=========================================
+
+1 клик: загрузил номера → выбрал обогатители → нажал "Запустить" → получил результат.
+
+Запуск:
+    streamlit run web_app.py
+"""
+
 import streamlit as st
 import pandas as pd
 import asyncio
@@ -24,13 +34,10 @@ st.sidebar.header("⚙️ Настройки")
 
 available_enrichers = list_available_enrichers()
 
-# Безопасный default (исправлено)
-safe_default = [name for name in ENRICHER_NAMES if name in available_enrichers]
-
 selected_enrichers = st.sidebar.multiselect(
     "Выбери обогатители данных (сервисы)",
     options=available_enrichers,
-    default=safe_default or available_enrichers[:3],
+    default=ENRICHER_NAMES,
     help="Можно выбрать несколько. Система будет пробовать их по очереди."
 )
 
@@ -41,10 +48,8 @@ strategy = st.sidebar.selectbox(
     help="first_success = берём данные из первого успешного сервиса\nmerge = собираем данные из всех"
 )
 
-do_buy = st.sidebar.checkbox("Сразу купить одобренные номера через PVA", value=False)
-
-if do_buy:
-    pva_service = st.sidebar.selectbox("Какой сервис активировать", ["telegram", "whatsapp", "instagram", "google"])
+do_buy = st.sidebar.checkbox("Покупать одобренные номера через PVA", value=False)
+pva_service = st.sidebar.text_input("Какой сервис активировать", value="telegram")
 
 backend_url = st.sidebar.text_input(
     "Backend URL (Railway)",
@@ -69,9 +74,10 @@ if uploaded_file is not None:
     phones = [line.strip() for line in content.splitlines() if line.strip()]
     st.success(f"Загружено {len(phones)} номеров")
 
+# Показать превью
 if phones:
-    with st.expander("Посмотреть первые 10 номеров"):
-        st.code("\n".join(phones[:10]))
+    st.write("Первые 10 номеров:")
+    st.code("\n".join(phones[:10]))
 
 # === Кнопка запуска ===
 st.header("2. Запусти обработку")
@@ -84,16 +90,19 @@ if st.button("🚀 Запустить полный пайплайн (1 клик)
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            try:
-                import automation.full_pipeline as fp
-                fp.ENRICHER_NAMES = selected_enrichers
-                fp.ENRICHER_STRATEGY = strategy
+            # Обновляем глобальные настройки
+            import automation.full_pipeline as fp
+            fp.ENRICHER_NAMES = selected_enrichers
+            fp.ENRICHER_STRATEGY = strategy
+            fp.BACKEND_URL = backend_url
 
+            # Запускаем pipeline
+            try:
                 results = asyncio.run(
                     full_pipeline(
                         input_phones=phones,
                         do_buy=do_buy,
-                        service=pva_service if do_buy else "telegram"
+                        service=pva_service
                     )
                 )
 
@@ -104,19 +113,23 @@ if st.button("🚀 Запустить полный пайплайн (1 клик)
                     df = pd.DataFrame(results)
 
                     st.header("📊 Результаты")
+
+                    # Показываем красивую таблицу
                     st.dataframe(df, use_container_width=True)
 
+                    # Статистика
                     col1, col2, col3 = st.columns(3)
                     with col1:
                         st.metric("Всего обработано", len(results))
                     with col2:
-                        enriched = len([r for r in results if r.get("has_data")])
-                        st.metric("С данными", enriched)
+                        enriched_count = len([r for r in results if r.get("has_data")])
+                        st.metric("С данными (одобрено)", enriched_count)
                     with col3:
                         if do_buy:
-                            bought = len([r for r in results if r.get("bought")])
-                            st.metric("Куплено", bought)
+                            bought_count = len([r for r in results if r.get("bought")])
+                            st.metric("Куплено", bought_count)
 
+                    # Скачивание
                     csv = df.to_csv(index=False).encode("utf-8")
                     st.download_button(
                         label="📥 Скачать результат (CSV)",
@@ -128,16 +141,17 @@ if st.button("🚀 Запустить полный пайплайн (1 клик)
                     st.warning("Не удалось получить данные ни по одному номеру.")
 
             except Exception as e:
-                status_text.error(f"Ошибка: {str(e)}")
+                st.error(f"Ошибка при обработке: {str(e)}")
                 st.exception(e)
 
 # === Инструкция ===
 with st.expander("📖 Как пользоваться"):
     st.markdown("""
-    1. Загрузи файл с номерами
-    2. Выбери нужные чекеры в боковой панели
-    3. Нажми большую кнопку запуска
-    4. Скачай результат
+    1. Загрузи файл с номерами (TXT или CSV)
+    2. В боковой панели выбери, какие сервисы обогащения использовать
+    3. Нажми большую синюю кнопку **"Запустить полный пайплайн"**
+    4. Дождись результата и скачай CSV
+    5. При необходимости включи опцию покупки номеров
     """)
 
 st.markdown("---")
