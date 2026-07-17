@@ -12,21 +12,53 @@ Registry для всех обогатителей данных (enrichers).
 from typing import Dict, Type
 from .base import BaseEnricher
 
-# Импорты конкретных реализаций
+# === Импорты ВСЕХ обогатителей (готовы к использованию в UI) ===
 from .example_truepeople import ExampleTruePeopleEnricher
+from .truepeople import TruePeopleEnricher
+from .beenverified import BeenVerifiedEnricher
+from .truthfinder import TruthFinderEnricher
+from .instant_checkmate import InstantCheckmateEnricher
+from .intelius import InteliusEnricher
+from .spokeo import SpokeoEnricher
+from .checkr import CheckrEnricher
+from .truework import TrueworkEnricher
+from .sterling import SterlingEnricher
+from .adp_screening import ADPScreeningEnricher
+from .certn import CertnEnricher
+from .first_advantage import FirstAdvantageEnricher
+from .hireright import HireRightEnricher
+from .zinc import ZincEnricher
 
-# === РЕЕСТР ВСЕХ ДОСТУПНЫХ ОБОГАТИТЕЛЕЙ ===
+# === РЕЕСТР ВСЕХ ДОСТУПНЫХ ОБОГАТИТЕЛЕЙ ДЛЯ USA (ФИО, адрес, история номера) ===
 ENRICHERS: Dict[str, Type[BaseEnricher]] = {
     "example_truepeople": ExampleTruePeopleEnricher,
-    
-    # === Сюда добавляй новые сервисы из списка ===
-    # "truework": TrueworkEnricher,
-    # "checkr": CheckrEnricher,
-    # "sterling": SterlingEnricher,
-    # "beenverified": BeenVerifiedEnricher,
-    # "spokeo": SpokeoEnricher,
-    # и т.д.
+    "truepeople": TruePeopleEnricher,
+    "beenverified": BeenVerifiedEnricher,
+    "truthfinder": TruthFinderEnricher,
+    "instant_checkmate": InstantCheckmateEnricher,
+    "intelius": InteliusEnricher,
+    "spokeo": SpokeoEnricher,
+    "checkr": CheckrEnricher,
+    "truework": TrueworkEnricher,
+    "sterling": SterlingEnricher,
+    "adp_screening": ADPScreeningEnricher,
+    "certn": CertnEnricher,
+    "first_advantage": FirstAdvantageEnricher,
+    "hireright": HireRightEnricher,
+    "zinc": ZincEnricher,
 }
+
+# === ДЕМО РЕЖИМ ВКЛЮЧЁН ===
+# Все обогатители (truepeople, beenverified, intelius и др.) сейчас возвращают 
+# правдоподобные тестовые данные по USA (ФИО, адрес, город, штат).
+# Это позволяет сразу тестировать веб-интерфейс, пайплайн и фильтрацию.
+#
+# Для реальной работы:
+# 1. Получи API ключи / доступ к сервисам (TruePeopleSearch, Intelius, BeenVerified, Checkr и т.д.)
+# 2. Реализуй настоящий запрос в enrich_number() в файлах enrichers/xxx.py
+# 3. Удали "note": "ДЕМО ДАННЫЕ..." из возврата
+#
+# example_truepeople — отдельный пример с условной логикой (для номеров, заканчивающихся на 0)
 
 
 def get_enricher(name: str, **kwargs) -> BaseEnricher:
